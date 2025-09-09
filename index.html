@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>No Hope</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      overflow: hidden;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+    }
+
+    .floating {
+      position: absolute;
+      font-weight: bold;
+      white-space: nowrap;
+      text-shadow: 0 0 10px white, 0 0 20px pink;
+      opacity: 0.9;
+      animation: float linear forwards;
+    }
+
+    @keyframes float {
+      from { transform: translateY(110vh); opacity: 1; }
+      to   { transform: translateY(-20vh); opacity: 0; }
+    }
+
+    @keyframes floatDown {
+      from { transform: translateY(-20vh); opacity: 1; }
+      to   { transform: translateY(110vh); opacity: 0; }
+    }
+
+    .cursor-heart {
+      position: absolute;
+      color: red;
+      font-size: 20px;
+      pointer-events: none;
+      animation: flyUp 1s ease-out forwards;
+      text-shadow: 0 0 10px red, 0 0 20px pink;
+    }
+
+    @keyframes flyUp {
+      from { transform: translateY(0) scale(1); opacity: 1; }
+      to   { transform: translateY(-80px) scale(1.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <script>
+    const colors = ["#ff66cc", "#66ccff", "#ffff66", "#ff9966", "#cc99ff", "#ffffff"];
+    const message = "✨ Chúc các bạn một ngày tốt lành ✨";
+
+    function createFloatingUp() {
+      const text = document.createElement("div");
+      text.className = "floating";
+      text.innerText = Math.random() > 0.4 ? message : "❤️"; 
+
+      // màu ngẫu nhiên
+      text.style.color = colors[Math.floor(Math.random() * colors.length)];
+      // vị trí ngang ngẫu nhiên
+      text.style.left = Math.random() * window.innerWidth + "px";
+      text.style.top = window.innerHeight + "px";
+      // kích thước ngẫu nhiên (16px - 40px)
+      text.style.fontSize = (16 + Math.random() * 24) + "px";
+
+      const duration = 3 + Math.random() * 2;
+      text.style.animation = `float ${duration}s linear forwards`;
+
+      document.body.appendChild(text);
+      setTimeout(() => text.remove(), duration * 1000);
+    }
+
+    function createFloatingDown() {
+      const text = document.createElement("div");
+      text.className = "floating";
+      text.innerText = Math.random() > 0.4 ? message : "❤️";
+
+      text.style.color = colors[Math.floor(Math.random() * colors.length)];
+      text.style.left = Math.random() * window.innerWidth + "px";
+      text.style.top = "-50px";
+      text.style.fontSize = (16 + Math.random() * 24) + "px";
+
+      const duration = 3 + Math.random() * 2;
+      text.style.animation = `floatDown ${duration}s linear forwards`;
+
+      document.body.appendChild(text);
+      setTimeout(() => text.remove(), duration * 1000);
+    }
+
+    // tạo nhiều chữ và tim liên tục
+    setInterval(createFloatingUp, 80);   // nhanh và nhiều hơn
+    setInterval(createFloatingDown, 100);
+
+    // hiệu ứng tim khi di chuột / chạm
+    function showHeart(x, y) {
+      const heart = document.createElement("div");
+      heart.className = "cursor-heart";
+      heart.textContent = "❤️";
+      heart.style.left = x + "px";
+      heart.style.top = y + "px";
+      document.body.appendChild(heart);
+      setTimeout(() => heart.remove(), 1000);
+    }
+
+    document.addEventListener("mousemove", e => showHeart(e.pageX, e.pageY));
+    document.addEventListener("touchstart", e => {
+      for (let touch of e.touches) {
+        showHeart(touch.pageX, touch.pageY);
+      }
+    });
+  </script>
+</body>
+</html>
