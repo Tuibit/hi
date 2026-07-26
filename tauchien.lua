@@ -1,111 +1,66 @@
--- Global Variables
-getgenv().AutoAimConfig = {
-    Enabled = false,
-    FOV = 1000,
-    BulletSpeed = 2000, -- Tốc độ đạn dự đoán
-    TargetName = "Plane", -- Tìm model có tên chứa từ này hoặc máy bay
-    TeamCheck = true
-}
-
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
 
--- 1. TẠO GUI MENU SẮC NÉT
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local Title = Instance.new("TextLabel")
-local ToggleBtn = Instance.new("TextButton")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-ScreenGui.Name = "CheatMenu_AA"
-ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+-- Lấy nút bấm từ Gui
+local screenGui = playerGui:WaitForChild("AutoCollectGui")
+local toggleBtn = screenGui:WaitForChild("ToggleButton")
 
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
-MainFrame.Size = UDim2.new(0, 180, 0, 90)
-MainFrame.Active = true
-MainFrame.Draggable = true -- Cho phép kéo thả Menu
+-- Cấu hình Nhặt Năng Lượng
+local isAutoCollectEnabled = false
+local COLLECT_RADIUS = 80       -- Bán kính phát hiện ngọc (studs)
+local TWEEN_SPEED = 0.15        -- Thời gian ngọc bay về người (càng nhỏ nhặt càng nhanh)
 
-Title.Parent = MainFrame
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-Title.Text = "AA AIMBOT V1.0"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 14
-Title.Font = Enum.Font.SourceSansBold
+-- Xử lý bấm nút Bật/Tắt Menu
+toggleBtn.MouseButton1Click:Connect(function()
+	isAutoCollectEnabled = not isAutoCollectEnabled
 
-ToggleBtn.Parent = MainFrame
-ToggleBtn.Position = UDim2.new(0.1, 0, 0.45, 0)
-ToggleBtn.Size = UDim2.new(0.8, 0, 0.4, 0)
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-ToggleBtn.Text = "AUTO AIM: OFF"
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleBtn.TextSize = 14
-ToggleBtn.Font = Enum.Font.SourceSansBold
-
--- 2. HÀM TÌM MÁY BAY / MỤC TIÊU GẦN NHẤT
-local function GetClosestTarget()
-    local closestTarget = nil
-    local shortestDistance = getgenv().AutoAimConfig.FOV
-
-    for _, obj in ipairs(workspace:GetChildren()) do
-        -- Kiểm tra nếu là Model máy bay / Xe / Player khác
-        if obj:IsA("Model") and obj ~= LocalPlayer.Character then
-            local root = obj.PrimaryPart or obj:FindFirstChild("Engine") or obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildOfClass("BasePart")
-            
-            if root then
-                -- Tính khoảng cách màn hình hoặc khoảng cách 3D
-                local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-                if onScreen then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
-                    
-                    if dist < shortestDistance then
-                        shortestDistance = dist
-                        closestTarget = root
-                    end
-                end
-            end
-        end
-    end
-    return closestTarget
-end
-
--- 3. HÀM TÍNH TOÁN ĐÓN ĐẦU (LEAD TARGET MATH)
-local function GetPredictedPosition(targetPart)
-    local pos = targetPart.Position
-    local vel = targetPart.AssemblyLinearVelocity or Vector3.zero
-    local dist = (pos - Camera.CFrame.Position).Magnitude
-    local timeToHit = dist / getgenv().AutoAimConfig.BulletSpeed
-
-    return pos + (vel * timeToHit)
-end
-
--- 4. BẬT / TẮT MENU
-ToggleBtn.MouseButton1Click:Connect(function()
-    getgenv().AutoAimConfig.Enabled = not getgenv().AutoAimConfig.Enabled
-    if getgenv().AutoAimConfig.Enabled then
-        ToggleBtn.Text = "AUTO AIM: ON"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    else
-        ToggleBtn.Text = "AUTO AIM: OFF"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    end
+	if isAutoCollectEnabled then
+		toggleBtn.Text = "Auto-Collect: ON"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Màu xanh
+	else
+		toggleBtn.Text = "Auto-Collect: OFF"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)   -- Màu đỏ
+	end
 end)
 
--- 5. VÒNG LẶP KHÓA CAMERA VÀO ĐIỂM ĐÓN ĐẦU
+-- Vòng lặp quét ngọc và hút về phía người chơi (RenderStepped)
 RunService.RenderStepped:Connect(function()
-    if getgenv().AutoAimConfig.Enabled then
-        local target = GetClosestTarget()
-        if target then
-            local aimPoint = GetPredictedPosition(target)
-            -- Khóa Camera trực tiếp vào tọa độ đón đầu
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, aimPoint)
-        end
-    end
+	if not isAutoCollectEnabled then return end
+
+	local character = player.Character
+	if not character then return end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	-- Lấy Folder chứa ngọc
+	local energyFolder = Workspace:FindFirstChild("EnergyFolder")
+	if not energyFolder then return end
+
+	-- Duyệt qua tất cả các viên ngọc trên map
+	for _, orb in ipairs(energyFolder:GetChildren()) do
+		if orb:IsA("BasePart") and not orb:GetAttribute("BeingCollected") then
+			local distance = (orb.Position - hrp.Position).Magnitude
+
+			-- Nếu ngọc nằm trong phạm vi nhặt
+			if distance <= COLLECT_RADIUS then
+				-- Đánh dấu ngọc đang được hút để tránh trùng lặp
+				orb:SetAttribute("BeingCollected", true)
+
+				-- Tạo hiệu ứng ngọc bay siêu nhanh về phía nhân vật (Tween)
+				local tweenInfo = TweenInfo.new(
+					TWEEN_SPEED, 
+					Enum.EasingStyle.Quad, 
+					Enum.EasingDirection.In
+				)
+				local tween = TweenService:Create(orb, tweenInfo, {Position = hrp.Position})
+				tween:Play()
+			end
+		end
+	end
 end)
