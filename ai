@@ -1,0 +1,23 @@
+-- Dán vào ServerScriptService -> Script
+local NPCFolder = workspace.Enemies -- đổi tên folder chứa NPC của bạn
+
+for _, npc in pairs(NPCFolder:GetChildren()) do
+	local hum = npc:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.HealthChanged:Connect(function()
+			if hum.Health < hum.MaxHealth then
+				hum.Health = hum.MaxHealth -- khóa máu full
+			end
+		end)
+		hum.BreakJointsOnDeath = false -- không chết khi máu = 0
+	end
+end
+
+-- Nếu NPC spawn liên tục thì dùng:
+NPCFolder.ChildAdded:Connect(function(npc)
+	local hum = npc:WaitForChild("Humanoid")
+	hum.HealthChanged:Connect(function()
+		if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+	end)
+	hum.BreakJointsOnDeath = false
+end)
