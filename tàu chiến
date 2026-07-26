@@ -1,0 +1,116 @@
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local gunModel = script.Parent
+local turret = gunModel:WaitForChild("Turret")
+local barrel = gunModel:WaitForChild("Barrel")
+local muzzle = barrel:WaitForChild("Muzzle")
+
+-- Lấy RemoteEvent từ ReplicatedStorage
+local toggleEvent = ReplicatedStorage:WaitForChild("ToggleAutoAim")
+
+-- Cấu hình súng
+local DETECT_RADIUS = 3000   -- Bán kính quét mục tiêu
+local BULLET_SPEED = 1500    -- Tốc độ đạn bay
+local FIRE_RATE = 0.08       -- Tốc độ bắn
+local lastShot = 0
+local autoAimActive = false  -- Trạng thái bật/tắt từ Menu
+
+-- Lắng nghe tín hiệu Bật/Tắt từ Menu
+toggleEvent.OnServerEvent:Connect(function(player, state)
+	autoAimActive = state
+end)
+
+-- Tìm máy bay gần nhất
+local function getClosestTarget()
+	local closestTarget = nil
+	local shortestDistance = DETECT_RADIUS
+
+	for _, obj in ipairs(Workspace:GetChildren()) do
+		if obj:IsA("Model") and obj ~= gunModel and (obj:FindFirstChild("Humanoid") or obj.Name == "Plane") then
+			local rootPart = obj.PrimaryPart or obj:FindFirstChild("Engine") or obj:FindFirstChild("Part")
+			if rootPart then
+				local distance = (rootPart.Position - muzzle.WorldCFrame.Position).Magnitude
+				if distance < shortestDistance then
+					shortestDistance = distance
+					closestTarget = rootPart
+				end
+			end
+		end
+	end
+	return closestTarget
+end
+
+-- Tính toán điểm đón đầu (Lead Target Math)
+local function getPredictedPosition(targetPart)
+	local targetPos = targetPart.Position
+	local targetVelocity = targetPart.AssemblyLinearVelocity
+	local muzzlePos = muzzle.WorldCFrame.Position
+
+	local distance = (targetPos - muzzlePos).Magnitude
+	local timeToHit = distance / BULLET_SPEED
+
+	return targetPos + (targetVelocity * timeToHit)
+end
+
+-- Bắn đạn
+local function fireAutoBullet(targetPart)
+	local now = tick()
+	if now - lastShot < FIRE_RATE then return end
+	lastShot = now
+
+	local bullet = Instance.new("Part")
+	bullet.Name = "AutoAABullet"
+	bullet.Size = Vector3.new(0.6, 0.6, 3)
+	bullet.Material = Enum.Material.Neon
+	bullet.BrickColor = BrickColor.new("Really red")
+	bullet.CanCollide = false
+	bullet.CFrame = muzzle.WorldCFrame
+
+	local bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+	bodyVelocity.Velocity = muzzle.WorldCFrame.LookVector * BULLET_SPEED
+	bodyVelocity.Parent = bullet
+
+	bullet.Parent = Workspace
+
+	bullet.Touched:Connect(function(hit)
+		if hit:IsDescendantOf(gunModel) then return end
+		
+		if hit:IsDescendantOf(targetPart.Parent) or hit == targetPart then
+			local hum = targetPart.Parent:FindFirstChildOfClass("Humanoid")
+			if hum then
+				hum:TakeDamage(15)
+			end
+			bullet:Destroy()
+		end
+	end)
+
+	task.delay(3, function()
+		if bullet and bullet.Parent then
+			bullet:Destroy()
+		end
+	end)
+end
+
+-- Vòng lặp kiểm tra trạng thái
+RunService.Heartbeat:Connect(function()
+	-- Chỉ chạy khi Menu đang BẬT (ON)
+	if not autoAimActive then return end
+
+	local target = getClosestTarget()
+	if target then
+		local aimPoint = getPredictedPosition(target)
+
+		-- Xoay súng về vị trí đón đầu
+		local turretPos = turret.Position
+		turret.CFrame = CFrame.lookAt(turretPos, Vector3.new(aimPoint.X, turretPos.Y, aimPoint.Z))
+
+		local barrelPos = barrel.Position
+		barrel.CFrame = CFrame.lookAt(barrelPos, aimPoint)
+
+		-- Bắn
+		fireAutoBullet(target)
+	end
+end)
