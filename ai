@@ -1,23 +1,26 @@
--- Dán vào ServerScriptService -> Script
-local NPCFolder = workspace.Enemies -- đổi tên folder chứa NPC của bạn
+local NPCFolder = workspace.Enemies -- đổi tên folder NPC của bạn
 
-for _, npc in pairs(NPCFolder:GetChildren()) do
-	local hum = npc:FindFirstChildOfClass("Humanoid")
-	if hum then
-		hum.HealthChanged:Connect(function()
-			if hum.Health < hum.MaxHealth then
-				hum.Health = hum.MaxHealth -- khóa máu full
-			end
-		end)
-		hum.BreakJointsOnDeath = false -- không chết khi máu = 0
+local function oneShotGun(npc)
+	for _, tool in pairs(npc:GetChildren()) do
+		if tool:IsA("Tool") and tool:FindFirstChild("Damage") then
+			tool.Damage.Value = 9999 -- chỉnh damage cao ngất
+		end
+		if tool:FindFirstChild("FireRate") then
+			tool.FireRate.Value = 0.1 -- bắn nhanh hơn tí
+		end
 	end
 end
 
--- Nếu NPC spawn liên tục thì dùng:
+-- áp dụng cho NPC có sẵn
+for _, npc in pairs(NPCFolder:GetChildren()) do
+	if npc:FindFirstChildOfClass("Humanoid") then
+		oneShotGun(npc)
+	end
+end
+
+-- áp dụng cho NPC spawn mới
 NPCFolder.ChildAdded:Connect(function(npc)
-	local hum = npc:WaitForChild("Humanoid")
-	hum.HealthChanged:Connect(function()
-		if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+	npc.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") then task.wait(0.1) oneShotGun(npc) end
 	end)
-	hum.BreakJointsOnDeath = false
 end)
