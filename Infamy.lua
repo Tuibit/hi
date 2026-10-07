@@ -1,267 +1,184 @@
--- POTASSIUM EXECUTOR - INFAMY FULL WEAPON & GOD MENU
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local Title = Instance.new("TextLabel")
-local CloseBtn = Instance.new("TextButton")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
 
-if game.CoreGui:FindFirstChild("PotassiumInfamyFullUI") then
-    game.CoreGui.PotassiumInfamyFullUI:Destroy()
+local LocalPlayer = Players.LocalPlayer
+
+-- Cấu hình
+local speedStep = 10         -- Khoảng tăng/giảm mỗi lần bấm nút +/-
+local defaultSpeed = 16      -- Tốc độ mặc định của Roblox
+local currentSpeed = 50      -- Tốc độ muốn đặt khi BẬT
+local isEnabled = false
+
+-- Hàm lấy Humanoid an toàn
+local function getHumanoid()
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	return char:WaitForChild("Humanoid", 5)
 end
 
-ScreenGui.Name = "PotassiumInfamyFullUI"
-ScreenGui.Parent = game.CoreGui
+-- Vòng lặp duy trì tốc độ (Tránh bị game tự động đè lại WalkSpeed)
+RunService.Stepped:Connect(function()
+	local hum = getHumanoid()
+	if hum then
+		if isEnabled then
+			hum.WalkSpeed = currentSpeed
+		end
+	end
+end)
 
--- Khung Menu Chính (Được mở rộng chiều cao để chứa thêm nút)
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 28)
-MainFrame.BorderColor3 = Color3.fromRGB(255, 85, 0)
-MainFrame.BorderSizePixel = 2
-MainFrame.Position = UDim2.new(0.3, 0, 0.15, 0)
-MainFrame.Size = UDim2.new(0, 290, 0, 420)
-MainFrame.Active = true
-MainFrame.Draggable = true
+-- Tạo GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SpeedGui_Fixed"
+screenGui.ResetOnSpawn = false
 
-Title.Parent = MainFrame
-Title.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Font = Enum.Font.SourceSansBold
-Title.Text = "INFAMY - AMMO & NO RECOIL MENU"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 14.000
-
-CloseBtn.Parent = MainFrame
-CloseBtn.Position = UDim2.new(0.85, 0, 0, 0)
-CloseBtn.Size = UDim2.new(0.15, 0, 0, 35)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
-
--- Hàm tạo Nút bấm nhanh
-local function CreateButton(text, posY, callback)
-    local btn = Instance.new("TextButton")
-    btn.Parent = MainFrame
-    btn.Position = UDim2.new(0.06, 0, posY, 0)
-    btn.Size = UDim2.new(0.88, 0, 0, 36)
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    btn.Font = Enum.Font.SourceSans
-    btn.Text = text
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextSize = 14.000
-    btn.MouseButton1Click:Connect(function() callback(btn) end)
-    return btn
+pcall(function()
+	screenGui.Parent = CoreGui
+end)
+if not screenGui.Parent then
+	screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- 1. CHỨC NĂNG ĐẠN VÔ HẠN (INFINITE AMMO)
-local infAmmo = false
-CreateButton("Đạn Vô Hạn (Infinite Ammo): OFF", 0.11, function(btn)
-    infAmmo = not infAmmo
-    if infAmmo then
-        btn.Text = "Đạn Vô Hạn (Infinite Ammo): ON"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    else
-        btn.Text = "Đạn Vô Hạn (Infinite Ammo): OFF"
-        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    end
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 180, 0, 110)
+mainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+mainFrame.Active = true
+mainFrame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = mainFrame
+
+-- Hàm hỗ trợ Kéo/Thả Menu
+local function makeDraggable(frame)
+	local dragging, dragInput, dragStart, startPos
+	frame.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = frame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	frame.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if input == dragInput and dragging then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+end
+makeDraggable(mainFrame)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.Text = "Menu Speed (" .. currentSpeed .. ")"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 13
+title.Font = Enum.Font.SourceSansBold
+title.Parent = mainFrame
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0.9, 0, 0, 30)
+toggleBtn.Position = UDim2.new(0.05, 0, 0.3, 0)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+toggleBtn.Text = "Trạng thái: TẮT"
+toggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleBtn.Font = Enum.Font.SourceSans
+toggleBtn.TextSize = 14
+toggleBtn.Parent = mainFrame
+
+local btnCorner1 = Instance.new("UICorner")
+btnCorner1.CornerRadius = UDim.new(0, 6)
+btnCorner1.Parent = toggleBtn
+
+local upBtn = Instance.new("TextButton")
+upBtn.Size = UDim2.new(0.425, 0, 0, 30)
+upBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
+upBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+upBtn.Text = "+ Speed"
+upBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+upBtn.Font = Enum.Font.SourceSansBold
+upBtn.TextSize = 14
+upBtn.Parent = mainFrame
+
+local btnCorner2 = Instance.new("UICorner")
+btnCorner2.CornerRadius = UDim.new(0, 6)
+btnCorner2.Parent = upBtn
+
+local downBtn = Instance.new("TextButton")
+downBtn.Size = UDim2.new(0.425, 0, 0, 30)
+downBtn.Position = UDim2.new(0.525, 0, 0.65, 0)
+downBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 150)
+downBtn.Text = "- Speed"
+downBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+downBtn.Font = Enum.Font.SourceSansBold
+downBtn.TextSize = 14
+downBtn.Parent = mainFrame
+
+local btnCorner3 = Instance.new("UICorner")
+btnCorner3.CornerRadius = UDim.new(0, 6)
+btnCorner3.Parent = downBtn
+
+-- Cập nhật tiêu đề hiển thị tốc độ
+local function updateTitle()
+	title.Text = "Menu Speed (" .. currentSpeed .. ")"
+end
+
+-- Sự kiện Bật / Tắt
+toggleBtn.MouseButton1Click:Connect(function()
+	local hum = getHumanoid()
+	isEnabled = not isEnabled
+	
+	if isEnabled then
+		toggleBtn.Text = "Trạng thái: BẬT"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+		if hum then hum.WalkSpeed = currentSpeed end
+	else
+		toggleBtn.Text = "Trạng thái: TẮT"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		if hum then hum.WalkSpeed = defaultSpeed end
+	end
 end)
 
-task.spawn(function()
-    while true do
-        if infAmmo then
-            pcall(function()
-                -- Can thiệp vào thuộc tính súng trong Backpack và trên tay (Character)
-                local player = game.Players.LocalPlayer
-                local targets = {player.Backpack, player.Character}
-                for _, container in pairs(targets) do
-                    if container then
-                        for _, item in pairs(container:GetChildren()) do
-                            if item:IsA("Tool") then
-                                -- Khôi phục chỉ số đạn đối với các module súng phổ biến
-                                for _, child in pairs(item:GetDescendants()) do
-                                    if child:IsA("IntValue") or child:IsA("NumberValue") then
-                                        local name = child.Name:lower()
-                                        if name:find("ammo") or name:find("clip") or name:find("stored") then
-                                            child.Value = 999
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-        task.wait(0.2)
-    end
+-- Sự kiện Tăng Tốc (+)
+upBtn.MouseButton1Click:Connect(function()
+	currentSpeed = currentSpeed + speedStep
+	updateTitle()
+	if isEnabled then
+		local hum = getHumanoid()
+		if hum then hum.WalkSpeed = currentSpeed end
+	end
 end)
 
--- 2. CHỨC NĂNG BẮN KHÔNG GIẬT (NO RECOIL & NO SPREAD)
-local noRecoil = false
-CreateButton("Bắn Không Giật (No Recoil): OFF", 0.21, function(btn)
-    noRecoil = not noRecoil
-    if noRecoil then
-        btn.Text = "Bắn Không Giật (No Recoil): ON"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    else
-        btn.Text = "Bắn Không Giật (No Recoil): OFF"
-        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    end
+-- Sự kiện Giảm Tốc (-)
+downBtn.MouseButton1Click:Connect(function()
+	if currentSpeed - speedStep >= 0 then
+		currentSpeed = currentSpeed - speedStep
+	else
+		currentSpeed = 0
+	end
+	updateTitle()
+	if isEnabled then
+		local hum = getHumanoid()
+		if hum then hum.WalkSpeed = currentSpeed end
+	end
 end)
 
-task.spawn(function()
-    while true do
-        if noRecoil then
-            pcall(function()
-                local player = game.Players.LocalPlayer
-                local targets = {player.Backpack, player.Character}
-                for _, container in pairs(targets) do
-                    if container then
-                        for _, item in pairs(container:GetChildren()) do
-                            if item:IsA("Tool") then
-                                -- Triệt tiêu độ giật và độ nở tâm ngắm
-                                for _, child in pairs(item:GetDescendants()) do
-                                    if child:IsA("NumberValue") or child:IsA("IntValue") then
-                                        local name = child.Name:lower()
-                                        if name:find("recoil") or name:find("spread") or name:find("kick") then
-                                            child.Value = 0
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-        task.wait(0.3)
-    end
-end)
-
--- 3. CHỨC NĂNG CẦM TẤT CẢ SÚNG CÙNG LÚC (EQUIP ALL)
-CreateButton(" Trang Bị Tất Cả Súng (Equip All)", 0.31, function(btn)
-    pcall(function()
-        local player = game.Players.LocalPlayer
-        local char = player.Character
-        if char and player:FindFirstChild("Backpack") then
-            for _, tool in pairs(player.Backpack:GetChildren()) do
-                if tool:IsA("Tool") then
-                    tool.Parent = char
-                end
-            end
-        end
-    end)
-end)
-
--- 4. CHỨC NĂNG BẤT TỬ (GOD MODE)
-local godMode = false
-CreateButton("God Mode (Bất Tử): OFF", 0.41, function(btn)
-    godMode = not godMode
-    if godMode then
-        btn.Text = "God Mode (Bất Tử): ON"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    else
-        btn.Text = "God Mode (Bất Tử): OFF"
-        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        if godMode then
-            pcall(function()
-                local char = game.Players.LocalPlayer.Character
-                if char and char:FindFirstChild("Humanoid") then
-                    char.Humanoid.Health = char.Humanoid.MaxHealth
-                    char.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-                end
-            end)
-        end
-        task.wait(0.1)
-    end
-end)
-
--- 5. CHỨC NĂNG AUTO FARM INFAMY
-local autoFarm = false
-CreateButton("Auto Farm Infamy: OFF", 0.51, function(btn)
-    autoFarm = not autoFarm
-    if autoFarm then
-        btn.Text = "Auto Farm Infamy: ON"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    else
-        btn.Text = "Auto Farm Infamy: OFF"
-        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        if autoFarm then
-            pcall(function()
-                local RS = game:GetService("ReplicatedStorage")
-                for _, v in pairs(RS:GetDescendants()) do
-                    if v:IsA("RemoteEvent") and (v.Name:lower():find("infamy") or v.Name:lower():find("rob")) then
-                        v:FireServer()
-                    end
-                end
-            end)
-        end
-        task.wait(0.5)
-    end
-end)
-
--- 6. CHỨC NĂNG TỰ ĐỘNG XÓA TRUY NÃ
-local autoHeat = false
-CreateButton("Auto Clear Heat (Xóa Truy Nã): OFF", 0.61, function(btn)
-    autoHeat = not autoHeat
-    if autoHeat then
-        btn.Text = "Auto Clear Heat: ON"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    else
-        btn.Text = "Auto Clear Heat: OFF"
-        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        if autoHeat then
-            pcall(function()
-                local RS = game:GetService("ReplicatedStorage")
-                for _, v in pairs(RS:GetDescendants()) do
-                    if v:IsA("RemoteEvent") and (v.Name:lower():find("heat") or v.Name:lower():find("bribe") or v.Name:lower():find("clear")) then
-                        v:FireServer()
-                    end
-                end
-            end)
-        end
-        task.wait(1)
-    end
-end)
-
--- 7. CHỨC NĂNG ĐỔI TỐC ĐỘ CHẠY (SUPER SPEED)
-local speedActive = false
-CreateButton("Tốc Độ Chạy (Super Speed): OFF", 0.71, function(btn)
-    speedActive = not speedActive
-    if speedActive then
-        btn.Text = "Super Speed: ON (120)"
-        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 85)
-    else
-        btn.Text = "Super Speed: OFF"
-        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
-        pcall(function()
-            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
-        end)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        if speedActive then
-            pcall(function()
-                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 120
-            end)
-        end
-        task.wait(0.2)
-    end
+-- Khi hồi sinh, nếu đang BẬT thì tự áp dụng lại tốc độ
+LocalPlayer.CharacterAdded:Connect(function(char)
+	local hum = char:WaitForChild("Humanoid", 5)
+	if hum and isEnabled then
+		hum.WalkSpeed = currentSpeed
+	end
 end)
